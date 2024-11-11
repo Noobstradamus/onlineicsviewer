@@ -11,19 +11,21 @@ document.addEventListener("DOMContentLoaded", function () {
       center: "title",
       right: "dayGridMonth,dayGridWeek,dayGridDay",
     },
+    events: [], // Start with no events
   });
   calendar.render();
 
   // Handle file input change
-  document
-    .getElementById("icsFileInput")
-    .addEventListener("change", function (e) {
+  var fileInput = document.getElementById("icsFileInput");
+  if (fileInput) {
+    fileInput.addEventListener("change", function (e) {
       var file = e.target.files[0];
       if (file && file.name.endsWith(".ics")) {
         var reader = new FileReader();
 
         reader.onload = function (e) {
           var icsData = e.target.result;
+          console.log("ICS Data Loaded:", icsData);
           parseICS(icsData, calendar);
         };
 
@@ -37,29 +39,64 @@ document.addEventListener("DOMContentLoaded", function () {
         alert("Please upload a valid .ics file.");
       }
     });
+  } else {
+    console.error("File input element not found");
+  }
 });
 
 function parseICS(data, calendar) {
   try {
+    console.log("Parsing ICS data...");
     var jcalData = ICAL.parse(data);
+    console.log("jcalData:", jcalData);
+
     var comp = new ICAL.Component(jcalData);
     var vevents = comp.getAllSubcomponents("vevent");
+    console.log("Found vevents:", vevents.length);
 
     var events = vevents.map(function (vevent) {
       var event = new ICAL.Event(vevent);
-      return {
-        title: event.summary,
-        start: event.startDate.toJSDate(),
-        end: event.endDate ? event.endDate.toJSDate() : null,
-        allDay: event.startDate.isDate,
-      };
+      console.log("Processing event:", event);
+
+      // Handle recurrence rules
+      var occurrences = [];
+      if (event.isRecurring()) {
+        var recurExp = event.iterator();
+        var next;
+        var maxOccurrences = 50; // Limit to prevent infinite loops
+        var count = 0;
+
+        while ((next = recurExp.next()) && count < maxOccurrences) {
+          var occurrence = event.getOccurrenceDetails(next);
+          occurrences.push({
+            title: occurrence.item.summary,
+            start: occurrence.startDate.toJSDate(),
+            end: occurrence.endDate.toJSDate(),
+            allDay: occurrence.startDate.isDate,
+          });
+          count++;
+        }
+      } else {
+        occurrences.push({
+          title: event.summary,
+          start: event.startDate.toJSDate(),
+          end: event.endDate ? event.endDate.toJSDate() : null,
+          allDay: event.startDate.isDate,
+        });
+      }
+
+      return occurrences;
     });
+
+    // Flatten the occurrences array
+    events = events.flat();
+    console.log("Parsed Events:", events);
 
     // Add events to the calendar
     calendar.removeAllEvents();
     calendar.addEventSource(events);
   } catch (error) {
     console.error("Error parsing ICS data:", error);
-    alert("There was an error parsing the ICS file.");
+    alert("There was an error parsing the ICS file. Please check the console for details.");
   }
 }
