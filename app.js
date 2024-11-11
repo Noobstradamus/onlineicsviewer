@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", function () {
   var calendarEl = document.getElementById("calendar");
 
-  // Initialize the calendar
+  // Initialize the calendar without timeZoneLabel
   var calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: "dayGridMonth",
     editable: false,
@@ -54,6 +54,22 @@ function parseICS(data, calendar) {
     var vevents = comp.getAllSubcomponents("vevent");
     console.log("Found vevents:", vevents.length);
 
+    // Extract the time zone from the VEVENTs
+    var timeZonesUsed = new Set();
+    vevents.forEach(function(vevent) {
+      var dtstartProp = vevent.getFirstProperty('dtstart');
+      var tzid = dtstartProp.getParameter('tzid');
+      if (tzid) {
+        timeZonesUsed.add(tzid);
+      }
+    });
+    // Choose the time zone to display (e.g., the first one)
+    var timeZoneName = timeZonesUsed.values().next().value || 'UTC';
+    console.log("Extracted Time Zone:", timeZoneName);
+    
+    // Update the calendar header to display the time zone
+    updateCalendarHeader(calendar, timeZoneName);
+
     var events = vevents.map(function (vevent) {
       var event = new ICAL.Event(vevent);
       console.log("Processing event:", event);
@@ -100,4 +116,26 @@ function parseICS(data, calendar) {
     // Display the actual error message to the user
     alert("Error parsing ICS file: " + error.message);
   }
+}
+
+function updateCalendarHeader(calendar, timeZoneName) {
+  // Update the customButtons with the new time zone
+  calendar.setOption('customButtons', {
+    timeZoneLabel: {
+      text: timeZoneName,
+      click: function() {
+        // Optional: Define click behavior if needed
+      }
+    }
+  });
+
+  // Update the headerToolbar to include the timeZoneLabel
+  calendar.setOption('headerToolbar', {
+    left: "prev,next today",
+    center: "title",
+    right: "timeZoneLabel dayGridMonth,dayGridWeek,dayGridDay",
+  });
+
+  // Re-render the header to apply changes
+  calendar.render();
 }
