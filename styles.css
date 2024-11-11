@@ -11,3 +11,12 @@ body {
 input[type="file"] {
   margin-bottom: 20px;
 }
+
+.fc-toolbar-chunk .fc-button.fc-timeZoneLabel-button {
+  background: none;
+  border: none;
+  color: #000;
+  cursor: default;
+  pointer-events: none; /* Makes the button unclickable */
+  font-weight: normal;
+}
