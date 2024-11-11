@@ -97,6 +97,7 @@ function parseICS(data, calendar) {
     calendar.addEventSource(events);
   } catch (error) {
     console.error("Error parsing ICS data:", error);
-    alert("There was an error parsing the ICS file. Please check the console for details.");
+    // Display the actual error message to the user
+    alert("Error parsing ICS file: " + error.message);
   }
 }
