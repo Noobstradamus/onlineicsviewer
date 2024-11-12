@@ -1,12 +1,12 @@
 document.addEventListener("DOMContentLoaded", function () {
   var calendarEl = document.getElementById("calendar");
 
-  // Initialize the calendar with timeZone set to 'local'
+  // Initialize the calendar with timeZone set to 'none'
   var calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: "dayGridMonth",
     editable: false,
     selectable: false,
-    timeZone: 'local', // Use 'local' to respect each event's time zone
+    timeZone: 'none', // Do not adjust times based on the user's local time zone
     headerToolbar: {
       left: "prev,next today",
       center: "title",
@@ -51,33 +51,14 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
-// Function to format date-time with time zone information
-function formatDateTimeWithZone(icalTime) {
+// Function to format date-time without time zone adjustments
+function formatDateTime(icalTime) {
   function pad(num) {
     return num < 10 ? '0' + num : num;
   }
 
   var dateString = icalTime.year + '-' + pad(icalTime.month) + '-' + pad(icalTime.day) + 'T' +
                    pad(icalTime.hour) + ':' + pad(icalTime.minute) + ':' + pad(icalTime.second);
-
-  var zone = icalTime.zone;
-
-  if (zone.tzid === 'UTC' || zone.tzid === 'Z') {
-    dateString += 'Z';
-  } else {
-    var offset = zone.utcOffset(icalTime);
-
-    // In ICAL.js, offsets east of UTC are negative
-    // Adjust sign for ISO8601 format
-    var offsetSign = offset <= 0 ? '+' : '-';
-
-    offset = Math.abs(offset);
-
-    var offsetHours = Math.floor(offset / 60);
-    var offsetMinutes = offset % 60;
-
-    dateString += offsetSign + pad(offsetHours) + ':' + pad(offsetMinutes);
-  }
 
   return dateString;
 }
@@ -113,8 +94,8 @@ function parseICS(data, calendar) {
 
           occurrences.push({
             title: occurrence.item.summary + ' (' + occurrenceTzid + ')',
-            start: formatDateTimeWithZone(occurrence.startDate),
-            end: occurrence.endDate ? formatDateTimeWithZone(occurrence.endDate) : null,
+            start: formatDateTime(occurrence.startDate),
+            end: occurrence.endDate ? formatDateTime(occurrence.endDate) : null,
             allDay: occurrence.startDate.isDate,
           });
           count++;
@@ -122,8 +103,8 @@ function parseICS(data, calendar) {
       } else {
         occurrences.push({
           title: event.summary + ' (' + tzid + ')',
-          start: formatDateTimeWithZone(event.startDate),
-          end: event.endDate ? formatDateTimeWithZone(event.endDate) : null,
+          start: formatDateTime(event.startDate),
+          end: event.endDate ? formatDateTime(event.endDate) : null,
           allDay: event.startDate.isDate,
         });
       }
