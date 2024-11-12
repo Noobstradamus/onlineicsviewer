@@ -1,16 +1,24 @@
 document.addEventListener("DOMContentLoaded", function () {
   var calendarEl = document.getElementById("calendar");
 
-  // Initialize the calendar with timeZone set to 'local'
+  // Create an element to display time zones
+  var timezoneDisplay = document.createElement("div");
+  timezoneDisplay.id = "timezoneDisplay";
+  timezoneDisplay.style.textAlign = "center";
+  timezoneDisplay.style.fontWeight = "bold";
+  timezoneDisplay.style.marginBottom = "10px";
+  calendarEl.parentNode.insertBefore(timezoneDisplay, calendarEl);
+
+  // Initialize the calendar with timeGridWeek view
   var calendar = new FullCalendar.Calendar(calendarEl, {
-    initialView: "dayGridMonth",
+    initialView: "timeGridWeek",
     editable: false,
     selectable: false,
-    timeZone: 'local', // Set to 'UTC' if you prefer UTC time
+    timeZone: "local", // Adjust as needed
     headerToolbar: {
       left: "prev,next today",
       center: "title",
-      right: "dayGridMonth,dayGridWeek,dayGridDay",
+      right: "timeGridWeek,timeGridDay",
     },
     events: [], // Start with no events
   });
@@ -27,7 +35,7 @@ document.addEventListener("DOMContentLoaded", function () {
         reader.onload = function (e) {
           var icsData = e.target.result;
           console.log("ICS Data Loaded:", icsData);
-          parseICS(icsData, calendar);
+          parseICS(icsData, calendar, timezoneDisplay);
         };
 
         reader.onerror = function (e) {
@@ -45,7 +53,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
-function parseICS(data, calendar) {
+function parseICS(data, calendar, timezoneDisplay) {
   try {
     console.log("Parsing ICS data...");
     var jcalData = ICAL.parse(data);
@@ -55,9 +63,16 @@ function parseICS(data, calendar) {
     var vevents = comp.getAllSubcomponents("vevent");
     console.log("Found vevents:", vevents.length);
 
+    // Collect all unique time zones
+    var timeZones = new Set();
+
     var events = vevents.map(function (vevent) {
       var event = new ICAL.Event(vevent);
       console.log("Processing event:", event);
+
+      // Add time zone to the set
+      var eventTimeZone = event.startDate.zone.tzid || "UTC";
+      timeZones.add(eventTimeZone);
 
       // Handle recurrence rules
       var occurrences = [];
@@ -69,9 +84,13 @@ function parseICS(data, calendar) {
 
         while ((next = recurExp.next()) && count < maxOccurrences) {
           var occurrence = event.getOccurrenceDetails(next);
-          var timeZone = occurrence.startDate.zone.tzid || "UTC";
+
+          // Add occurrence time zone to the set
+          var occurrenceTimeZone = occurrence.startDate.zone.tzid || "UTC";
+          timeZones.add(occurrenceTimeZone);
+
           occurrences.push({
-            title: occurrence.item.summary + " (" + timeZone + ")",
+            title: occurrence.item.summary,
             start: new Date(occurrence.startDate.toUnixTime() * 1000),
             end: new Date(occurrence.endDate.toUnixTime() * 1000),
             allDay: occurrence.startDate.isDate,
@@ -79,9 +98,8 @@ function parseICS(data, calendar) {
           count++;
         }
       } else {
-        var timeZone = event.startDate.zone.tzid || "UTC";
         occurrences.push({
-          title: event.summary + " (" + timeZone + ")",
+          title: event.summary,
           start: new Date(event.startDate.toUnixTime() * 1000),
           end: event.endDate ? new Date(event.endDate.toUnixTime() * 1000) : null,
           allDay: event.startDate.isDate,
@@ -94,6 +112,9 @@ function parseICS(data, calendar) {
     // Flatten the occurrences array
     events = events.flat();
     console.log("Parsed Events:", events);
+
+    // Update the time zone display
+    timezoneDisplay.innerText = "Time Zones in ICS File: " + Array.from(timeZones).join(", ");
 
     // Add events to the calendar
     calendar.removeAllEvents();
