@@ -95,6 +95,9 @@ function parseICS(data, calendar) {
       var event = new ICAL.Event(vevent);
       console.log("Processing event:", event);
 
+      // Extract the time zone identifier (TZID)
+      var tzid = event.startDate.zone.tzid || 'UTC';
+
       // Handle recurrence rules
       var occurrences = [];
       if (event.isRecurring()) {
@@ -105,8 +108,10 @@ function parseICS(data, calendar) {
 
         while ((next = recurExp.next()) && count < maxOccurrences) {
           var occurrence = event.getOccurrenceDetails(next);
+          var occurrenceTzid = occurrence.startDate.zone.tzid || 'UTC';
+
           occurrences.push({
-            title: occurrence.item.summary,
+            title: occurrence.item.summary + ' (' + occurrenceTzid + ')',
             start: formatDateTimeWithZone(occurrence.startDate),
             end: occurrence.endDate ? formatDateTimeWithZone(occurrence.endDate) : null,
             allDay: occurrence.startDate.isDate,
@@ -115,7 +120,7 @@ function parseICS(data, calendar) {
         }
       } else {
         occurrences.push({
-          title: event.summary,
+          title: event.summary + ' (' + tzid + ')',
           start: formatDateTimeWithZone(event.startDate),
           end: event.endDate ? formatDateTimeWithZone(event.endDate) : null,
           allDay: event.startDate.isDate,
