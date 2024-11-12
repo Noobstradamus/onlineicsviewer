@@ -9,12 +9,15 @@ document.addEventListener("DOMContentLoaded", function () {
   timezoneDisplay.style.marginBottom = "10px";
   calendarEl.parentNode.insertBefore(timezoneDisplay, calendarEl);
 
+  // Get the user's local time zone
+  var userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+
   // Initialize the calendar with desired views
   var calendar = new FullCalendar.Calendar(calendarEl, {
-    initialView: "dayGridMonth", // You can set this to 'timeGridWeek' if preferred
+    initialView: "dayGridMonth",
     editable: false,
     selectable: false,
-    timeZone: "local", // Adjust as needed
+    timeZone: userTimeZone, // Use the user's local time zone
     headerToolbar: {
       left: "prev,next today",
       center: "title",
@@ -35,7 +38,7 @@ document.addEventListener("DOMContentLoaded", function () {
         reader.onload = function (e) {
           var icsData = e.target.result;
           console.log("ICS Data Loaded:", icsData);
-          parseICS(icsData, calendar, timezoneDisplay);
+          parseICS(icsData, calendar, timezoneDisplay, userTimeZone);
         };
 
         reader.onerror = function (e) {
@@ -53,7 +56,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
-function parseICS(data, calendar, timezoneDisplay) {
+function parseICS(data, calendar, timezoneDisplay, userTimeZone) {
   try {
     console.log("Parsing ICS data...");
     var jcalData = ICAL.parse(data);
@@ -70,11 +73,6 @@ function parseICS(data, calendar, timezoneDisplay) {
       var event = new ICAL.Event(vevent);
       console.log("Processing event:", event);
 
-      // Add time zone to the set
-      var eventTimeZone = event.startDate.zone.tzid || "UTC";
-      timeZones.add(eventTimeZone);
-
-      // Handle recurrence rules
       var occurrences = [];
       if (event.isRecurring()) {
         var recurExp = event.iterator();
@@ -85,24 +83,54 @@ function parseICS(data, calendar, timezoneDisplay) {
         while ((next = recurExp.next()) && count < maxOccurrences) {
           var occurrence = event.getOccurrenceDetails(next);
 
+          var occurrenceStartDate = occurrence.startDate;
+          var occurrenceEndDate = occurrence.endDate;
+
+          // Determine time zone
+          var occurrenceTimeZone = occurrenceStartDate.zone.tzid || "UTC";
+
+          if (occurrenceTimeZone === "UTC") {
+            // Convert UTC to user's local time zone
+            occurrenceStartDate = occurrenceStartDate.convertToZone(ICAL.Timezone.localTimezone);
+            occurrenceEndDate = occurrenceEndDate.convertToZone(ICAL.Timezone.localTimezone);
+            occurrenceTimeZone = userTimeZone;
+          }
+
           // Add occurrence time zone to the set
-          var occurrenceTimeZone = occurrence.startDate.zone.tzid || "UTC";
           timeZones.add(occurrenceTimeZone);
 
           occurrences.push({
             title: occurrence.item.summary,
-            start: occurrence.startDate.toJSDate(),
-            end: occurrence.endDate.toJSDate(),
-            allDay: occurrence.startDate.isDate,
+            start: occurrenceStartDate.toJSDate(),
+            end: occurrenceEndDate.toJSDate(),
+            allDay: occurrenceStartDate.isDate,
           });
           count++;
         }
       } else {
+        var eventStartDate = event.startDate;
+        var eventEndDate = event.endDate;
+
+        // Determine time zone
+        var eventTimeZone = eventStartDate.zone.tzid || "UTC";
+
+        if (eventTimeZone === "UTC") {
+          // Convert UTC to user's local time zone
+          eventStartDate = eventStartDate.convertToZone(ICAL.Timezone.localTimezone);
+          if (eventEndDate) {
+            eventEndDate = eventEndDate.convertToZone(ICAL.Timezone.localTimezone);
+          }
+          eventTimeZone = userTimeZone;
+        }
+
+        // Add event time zone to the set
+        timeZones.add(eventTimeZone);
+
         occurrences.push({
           title: event.summary,
-          start: event.startDate.toJSDate(),
-          end: event.endDate ? event.endDate.toJSDate() : null,
-          allDay: event.startDate.isDate,
+          start: eventStartDate.toJSDate(),
+          end: eventEndDate ? eventEndDate.toJSDate() : null,
+          allDay: eventStartDate.isDate,
         });
       }
 
