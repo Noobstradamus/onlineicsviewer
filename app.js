@@ -9,15 +9,12 @@ document.addEventListener("DOMContentLoaded", function () {
   timezoneDisplay.style.marginBottom = "10px";
   calendarEl.parentNode.insertBefore(timezoneDisplay, calendarEl);
 
-  // Get the user's local time zone
-  var userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-
   // Initialize the calendar with desired views
   var calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: "dayGridMonth",
     editable: false,
     selectable: false,
-    timeZone: userTimeZone, // Use the user's local time zone
+    timeZone: "UTC", // Set the calendar's time zone to UTC
     headerToolbar: {
       left: "prev,next today",
       center: "title",
@@ -38,7 +35,7 @@ document.addEventListener("DOMContentLoaded", function () {
         reader.onload = function (e) {
           var icsData = e.target.result;
           console.log("ICS Data Loaded:", icsData);
-          parseICS(icsData, calendar, timezoneDisplay, userTimeZone);
+          parseICS(icsData, calendar, timezoneDisplay);
         };
 
         reader.onerror = function (e) {
@@ -56,7 +53,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
-function parseICS(data, calendar, timezoneDisplay, userTimeZone) {
+function parseICS(data, calendar, timezoneDisplay) {
   try {
     console.log("Parsing ICS data...");
     var jcalData = ICAL.parse(data);
@@ -66,12 +63,26 @@ function parseICS(data, calendar, timezoneDisplay, userTimeZone) {
     var vevents = comp.getAllSubcomponents("vevent");
     console.log("Found vevents:", vevents.length);
 
-    // Collect all unique time zones
+    // Collect all unique time zones with friendly names
     var timeZones = new Set();
+
+    function getTimeZoneDisplayName(tzid) {
+      const timeZoneNames = {
+        "UTC": "Coordinated Universal Time (UTC)",
+        "Etc/UTC": "Coordinated Universal Time (UTC)",
+        // Add more mappings if needed
+      };
+      return timeZoneNames[tzid] || tzid;
+    }
 
     var events = vevents.map(function (vevent) {
       var event = new ICAL.Event(vevent);
       console.log("Processing event:", event);
+
+      // Determine time zone
+      var eventTimeZone = event.startDate.zone.tzid || "UTC";
+      var displayTimeZone = getTimeZoneDisplayName(eventTimeZone);
+      timeZones.add(displayTimeZone);
 
       var occurrences = [];
       if (event.isRecurring()) {
@@ -83,54 +94,25 @@ function parseICS(data, calendar, timezoneDisplay, userTimeZone) {
         while ((next = recurExp.next()) && count < maxOccurrences) {
           var occurrence = event.getOccurrenceDetails(next);
 
-          var occurrenceStartDate = occurrence.startDate;
-          var occurrenceEndDate = occurrence.endDate;
-
-          // Determine time zone
-          var occurrenceTimeZone = occurrenceStartDate.zone.tzid || "UTC";
-
-          if (occurrenceTimeZone === "UTC") {
-            // Convert UTC to user's local time zone
-            occurrenceStartDate = occurrenceStartDate.convertToZone(ICAL.Timezone.localTimezone);
-            occurrenceEndDate = occurrenceEndDate.convertToZone(ICAL.Timezone.localTimezone);
-            occurrenceTimeZone = userTimeZone;
-          }
-
-          // Add occurrence time zone to the set
-          timeZones.add(occurrenceTimeZone);
+          // Determine occurrence time zone
+          var occurrenceTimeZone = occurrence.startDate.zone.tzid || "UTC";
+          var occurrenceDisplayTimeZone = getTimeZoneDisplayName(occurrenceTimeZone);
+          timeZones.add(occurrenceDisplayTimeZone);
 
           occurrences.push({
             title: occurrence.item.summary,
-            start: occurrenceStartDate.toJSDate(),
-            end: occurrenceEndDate.toJSDate(),
-            allDay: occurrenceStartDate.isDate,
+            start: occurrence.startDate.toJSDate(),
+            end: occurrence.endDate.toJSDate(),
+            allDay: occurrence.startDate.isDate,
           });
           count++;
         }
       } else {
-        var eventStartDate = event.startDate;
-        var eventEndDate = event.endDate;
-
-        // Determine time zone
-        var eventTimeZone = eventStartDate.zone.tzid || "UTC";
-
-        if (eventTimeZone === "UTC") {
-          // Convert UTC to user's local time zone
-          eventStartDate = eventStartDate.convertToZone(ICAL.Timezone.localTimezone);
-          if (eventEndDate) {
-            eventEndDate = eventEndDate.convertToZone(ICAL.Timezone.localTimezone);
-          }
-          eventTimeZone = userTimeZone;
-        }
-
-        // Add event time zone to the set
-        timeZones.add(eventTimeZone);
-
         occurrences.push({
           title: event.summary,
-          start: eventStartDate.toJSDate(),
-          end: eventEndDate ? eventEndDate.toJSDate() : null,
-          allDay: eventStartDate.isDate,
+          start: event.startDate.toJSDate(),
+          end: event.endDate ? event.endDate.toJSDate() : null,
+          allDay: event.startDate.isDate,
         });
       }
 
@@ -141,7 +123,7 @@ function parseICS(data, calendar, timezoneDisplay, userTimeZone) {
     events = events.flat();
     console.log("Parsed Events:", events);
 
-    // Update the time zone display
+    // Update the time zone display with friendly names
     timezoneDisplay.innerText =
       "Time Zones in ICS File: " + Array.from(timeZones).join(", ");
 
