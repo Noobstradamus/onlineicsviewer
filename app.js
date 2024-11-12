@@ -9,16 +9,16 @@ document.addEventListener("DOMContentLoaded", function () {
   timezoneDisplay.style.marginBottom = "10px";
   calendarEl.parentNode.insertBefore(timezoneDisplay, calendarEl);
 
-  // Initialize the calendar with timeGridWeek view
+  // Initialize the calendar with desired views
   var calendar = new FullCalendar.Calendar(calendarEl, {
-    initialView: "timeGridWeek",
+    initialView: "dayGridMonth", // You can set this to 'timeGridWeek' if preferred
     editable: false,
     selectable: false,
     timeZone: "local", // Adjust as needed
     headerToolbar: {
       left: "prev,next today",
       center: "title",
-      right: "timeGridWeek,timeGridDay",
+      right: "dayGridMonth,timeGridWeek,timeGridDay",
     },
     events: [], // Start with no events
   });
@@ -91,8 +91,8 @@ function parseICS(data, calendar, timezoneDisplay) {
 
           occurrences.push({
             title: occurrence.item.summary,
-            start: new Date(occurrence.startDate.toUnixTime() * 1000),
-            end: new Date(occurrence.endDate.toUnixTime() * 1000),
+            start: occurrence.startDate.toJSDate(),
+            end: occurrence.endDate.toJSDate(),
             allDay: occurrence.startDate.isDate,
           });
           count++;
@@ -100,8 +100,8 @@ function parseICS(data, calendar, timezoneDisplay) {
       } else {
         occurrences.push({
           title: event.summary,
-          start: new Date(event.startDate.toUnixTime() * 1000),
-          end: event.endDate ? new Date(event.endDate.toUnixTime() * 1000) : null,
+          start: event.startDate.toJSDate(),
+          end: event.endDate ? event.endDate.toJSDate() : null,
           allDay: event.startDate.isDate,
         });
       }
@@ -114,7 +114,8 @@ function parseICS(data, calendar, timezoneDisplay) {
     console.log("Parsed Events:", events);
 
     // Update the time zone display
-    timezoneDisplay.innerText = "Time Zones in ICS File: " + Array.from(timeZones).join(", ");
+    timezoneDisplay.innerText =
+      "Time Zones in ICS File: " + Array.from(timeZones).join(", ");
 
     // Add events to the calendar
     calendar.removeAllEvents();
