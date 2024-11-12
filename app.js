@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", function () {
   var calendarEl = document.getElementById("calendar");
 
-  // Initialize the calendar without timeZoneLabel
+  // Initialize the calendar
   var calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: "dayGridMonth",
     editable: false,
@@ -51,56 +51,19 @@ function parseICS(data, calendar) {
     console.log("jcalData:", jcalData);
 
     var comp = new ICAL.Component(jcalData);
-
-    // Extract the time zone
-    var timeZoneName = comp.getFirstPropertyValue('x-wr-timezone');
-    console.log("Extracted Time Zone from X-WR-TIMEZONE:", timeZoneName);
-
-    if (!timeZoneName) {
-      var vtimezones = comp.getAllSubcomponents('vtimezone');
-      if (vtimezones.length > 0) {
-        timeZoneName = vtimezones[0].getFirstPropertyValue('tzid');
-        console.log("Extracted Time Zone from VTIMEZONE:", timeZoneName);
-      }
-    }
-
-    if (!timeZoneName) {
-      var vevents = comp.getAllSubcomponents("vevent");
-      var timeZonesUsed = new Set();
-      vevents.forEach(function(vevent) {
-        var dtstartProp = vevent.getFirstProperty('dtstart');
-        var tzid = dtstartProp.getParameter('tzid');
-        if (tzid) {
-          timeZonesUsed.add(tzid);
-        }
-      });
-      timeZoneName = timeZonesUsed.values().next().value;
-      console.log("Extracted Time Zone from VEVENT TZID:", timeZoneName);
-    }
-
-    if (!timeZoneName) {
-      timeZoneName = 'UTC';
-      console.log("No Time Zone found, defaulting to UTC");
-    }
-
-    // Update the calendar header to display the time zone
-    updateCalendarHeader(calendar, timeZoneName);
-
-    // Set the calendar's timeZone option
-    calendar.setOption('timeZone', timeZoneName);
-
     var vevents = comp.getAllSubcomponents("vevent");
-    console.log("Processing events...");
+    console.log("Found vevents:", vevents.length);
 
     var events = vevents.map(function (vevent) {
       var event = new ICAL.Event(vevent);
       console.log("Processing event:", event);
 
+      // Handle recurrence rules
       var occurrences = [];
       if (event.isRecurring()) {
         var recurExp = event.iterator();
         var next;
-        var maxOccurrences = 50;
+        var maxOccurrences = 50; // Limit to prevent infinite loops
         var count = 0;
 
         while ((next = recurExp.next()) && count < maxOccurrences) {
@@ -125,33 +88,16 @@ function parseICS(data, calendar) {
       return occurrences;
     });
 
+    // Flatten the occurrences array
     events = events.flat();
     console.log("Parsed Events:", events);
 
+    // Add events to the calendar
     calendar.removeAllEvents();
     calendar.addEventSource(events);
   } catch (error) {
     console.error("Error parsing ICS data:", error);
+    // Display the actual error message to the user
     alert("Error parsing ICS file: " + error.message);
   }
-}
-
-function updateCalendarHeader(calendar, timeZoneName) {
-  calendar.setOption('customButtons', {
-    timeZoneLabel: {
-      text: timeZoneName,
-      click: function() {
-        // Optional: Define click behavior if needed
-      }
-    }
-  });
-
-  calendar.setOption('headerToolbar', {
-    left: "prev,next today",
-    center: "title",
-    right: "timeZoneLabel dayGridMonth,dayGridWeek,dayGridDay",
-  });
-
-  // Re-render the header to apply changes
-  calendar.render();
 }
