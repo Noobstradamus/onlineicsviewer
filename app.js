@@ -1,11 +1,12 @@
 document.addEventListener("DOMContentLoaded", function () {
   var calendarEl = document.getElementById("calendar");
 
-  // Initialize the calendar
+  // Initialize the calendar with timeZone set to 'local'
   var calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: "dayGridMonth",
     editable: false,
     selectable: false,
+    timeZone: 'local', // Set to 'UTC' if you prefer UTC time
     headerToolbar: {
       left: "prev,next today",
       center: "title",
@@ -68,19 +69,21 @@ function parseICS(data, calendar) {
 
         while ((next = recurExp.next()) && count < maxOccurrences) {
           var occurrence = event.getOccurrenceDetails(next);
+          var timeZone = occurrence.startDate.zone.tzid || "UTC";
           occurrences.push({
-            title: occurrence.item.summary,
-            start: occurrence.startDate.toJSDate(),
-            end: occurrence.endDate.toJSDate(),
+            title: occurrence.item.summary + " (" + timeZone + ")",
+            start: new Date(occurrence.startDate.toUnixTime() * 1000),
+            end: new Date(occurrence.endDate.toUnixTime() * 1000),
             allDay: occurrence.startDate.isDate,
           });
           count++;
         }
       } else {
+        var timeZone = event.startDate.zone.tzid || "UTC";
         occurrences.push({
-          title: event.summary,
-          start: event.startDate.toJSDate(),
-          end: event.endDate ? event.endDate.toJSDate() : null,
+          title: event.summary + " (" + timeZone + ")",
+          start: new Date(event.startDate.toUnixTime() * 1000),
+          end: event.endDate ? new Date(event.endDate.toUnixTime() * 1000) : null,
           allDay: event.startDate.isDate,
         });
       }
@@ -97,7 +100,6 @@ function parseICS(data, calendar) {
     calendar.addEventSource(events);
   } catch (error) {
     console.error("Error parsing ICS data:", error);
-    // Display the actual error message to the user
     alert("Error parsing ICS file: " + error.message);
   }
 }
