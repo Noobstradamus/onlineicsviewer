@@ -51,6 +51,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
+// Function to format date-time with time zone information
 function formatDateTimeWithZone(icalTime) {
   function pad(num) {
     return num < 10 ? '0' + num : num;
@@ -81,6 +82,23 @@ function formatDateTimeWithZone(icalTime) {
   return dateString;
 }
 
+// Function to get the friendly time zone name
+function getFriendlyTimeZoneName(tzid) {
+  try {
+    // Create a date object for now in the specified time zone
+    var date = new Date();
+    // Use Intl.DateTimeFormat to get the time zone name
+    var options = { timeZone: tzid, timeZoneName: 'long' };
+    var formatter = new Intl.DateTimeFormat(undefined, options);
+    var parts = formatter.formatToParts(date);
+    var timeZoneName = parts.find(part => part.type === 'timeZoneName');
+    return timeZoneName ? timeZoneName.value : tzid;
+  } catch (e) {
+    // If an error occurs (e.g., invalid time zone), return tzid
+    return tzid;
+  }
+}
+
 function parseICS(data, calendar) {
   try {
     console.log("Parsing ICS data...");
@@ -97,6 +115,7 @@ function parseICS(data, calendar) {
 
       // Extract the time zone identifier (TZID)
       var tzid = event.startDate.zone.tzid || 'UTC';
+      var friendlyTzName = getFriendlyTimeZoneName(tzid);
 
       // Handle recurrence rules
       var occurrences = [];
@@ -109,9 +128,10 @@ function parseICS(data, calendar) {
         while ((next = recurExp.next()) && count < maxOccurrences) {
           var occurrence = event.getOccurrenceDetails(next);
           var occurrenceTzid = occurrence.startDate.zone.tzid || 'UTC';
+          var friendlyOccurrenceTzName = getFriendlyTimeZoneName(occurrenceTzid);
 
           occurrences.push({
-            title: occurrence.item.summary + ' (' + occurrenceTzid + ')',
+            title: occurrence.item.summary + ' (' + friendlyOccurrenceTzName + ')',
             start: formatDateTimeWithZone(occurrence.startDate),
             end: occurrence.endDate ? formatDateTimeWithZone(occurrence.endDate) : null,
             allDay: occurrence.startDate.isDate,
@@ -120,7 +140,7 @@ function parseICS(data, calendar) {
         }
       } else {
         occurrences.push({
-          title: event.summary + ' (' + tzid + ')',
+          title: event.summary + ' (' + friendlyTzName + ')',
           start: formatDateTimeWithZone(event.startDate),
           end: event.endDate ? formatDateTimeWithZone(event.endDate) : null,
           allDay: event.startDate.isDate,
